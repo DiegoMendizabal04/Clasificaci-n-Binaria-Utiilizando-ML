@@ -1,0 +1,64 @@
+#Analisis exploratorio de datos 
+
+#1-en Primer lugar vamos a importar las librerias necesarias para poder realizar el EDA
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns 
+
+#Cargamos los datos desde un archivo csv
+data= pd.read_csv('financial_data_with_war.csv', index_col='Date', parse_dates=True)
+
+#2-Realizamos histogramas para cada una de las columnas del df para ver las distribuciones de los datos 
+data.hist(bins=50, figsize=(20,15))
+plt.suptitle('Histograma de todas las variables', fontsize=16)
+plt.show()
+
+#3- Realizamos graficos de boxplots para todas las variables
+
+# Iterar sobre cada columna del DataFrame
+for column in data.columns:
+    plt.figure(figsize=(10, 5))
+    sns.boxplot(data=data[column], palette="Set3")
+    plt.title(f'Boxplot of {column}', fontsize=16)
+    plt.show()
+
+
+#Tenemos varios Outliers en 3 indices por lo que vamos a graficas las series temporales de estos tres indices para entender mejor que esta pasando en estos casos 
+
+# Filtramos los índices específicos
+indices_to_plot = ['ZW=F', 'CL=F', '^VIX']
+data_indices = data[indices_to_plot]
+
+# Graficamos las series temporales de cada índice
+plt.figure(figsize=(14, 7))
+for index in indices_to_plot:
+    plt.plot(data_indices.index, data_indices[index], label=index)
+
+plt.title('Time Series of Indices with Outliers: ZW=F, CL=F, and ^VIX', fontsize=16)
+plt.xlabel('Date')
+plt.ylabel('Value')
+plt.legend()
+plt.grid(True)
+plt.show() 
+
+
+#4- Realizamos un analisis descriptivo de los datos 
+desc_stats= data.describe()
+print('Resumen estadistico')
+print(desc_stats)
+
+#5 Calculo de la matriz de correlación
+corr_matrix= data.corr()
+
+#imprimimos la matriz de correlacion
+print(corr_matrix)
+
+#Realizamos un mapa de calor para poder ver los valores de la matriz de correlacion 
+plt.figure(figsize=(15,10))
+sns.heatmap(corr_matrix, annot=True, cmap='coolwarm', fmt='.2f')
+plt.title('Mapa de calor de correlacion')
+plt.show()
+
+# Mostramos pares de variables con correlación mayor a 0.8
+high_corr = corr_matrix[(corr_matrix > 0.8) & (corr_matrix != 1.0)]
+print(high_corr)

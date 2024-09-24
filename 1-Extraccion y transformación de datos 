@@ -1,0 +1,150 @@
+#Extracción y transformación de datos 
+#1- Extraemos informacion de los precios de cierre de las acciones que nos interesas para poder predecir si el precio de McDonalds sube o baja. Para esto vamos a utilizar la biblioteca  yfinance para extraer la informacion 
+
+#En primer lugar instalamos la biblioteca yfinance
+!pip install yfinance
+
+#Una vez instaladas importamos las librerias yfinance y pandas 
+
+import yfinance as yf 
+import pandas as pd 
+
+# Armamos una lista con los stickers que vamos a utilizar en nuestra base de datos
+tickers= ['MCD','^GSPC','^DJI', 'WEN','YUM','SBUX','KO','ZW=F','CL=F','SB=F','^VIX', '^BCOM' ]
+
+
+
+#2- Descargar los datos de cierre para todos los tickers de los ultimos 5 años 
+data= yf.download(tickers, start='2014-01-01', end='2024-01-01')['Adj Close']
+
+#Verificamos los primeros registros 
+print(data.head())
+
+
+#3-guardamos los archivos en un Csv Para su analisis posterior 
+data.to_csv('financial_data.csv')
+
+"""
+Tickers: Cada ticker en la lista representa un activo o índice. Por ejemplo, ^GSPC es el ticker para el S&P 500, CL=F es para el petróleo crudo (Oil), y ^VIX es para el índice de volatilidad.
+Adj Close: El atributo 'Adj Close' te da el precio de cierre ajustado, que es el precio de cierre que ha sido ajustado por dividendos y splits de acciones, lo cual es útil para análisis más precisos.
+Rango de Fechas: Puedes ajustar el rango de fechas (start y end) según tus necesidades.
+"""
+
+#4-Visualizamos los datos para tener una mejor vision de las variables
+
+# Cargar los datos descargados
+data = pd.read_csv('financial_data.csv', index_col='Date', parse_dates=True)
+
+# Ver las primeras filas de los datos
+print(data.head())
+
+# Ver las últimas filas de los datos
+print(data.tail())
+
+'En este punto visualizamos el dataframe para conocer mejor los valores con los que vamos a trabajar'
+
+
+#5-Como ultimo paso dentro del agregado de datos, vamos a sumar una columna que hace referencia a la guerra de ucrania en formato binario. 
+#   0=No Guerra
+#   1= Guerra 
+
+#Cargamos los datos descargados 
+data=pd.read_csv('financial_data.csv', index_col='Date', parse_dates=True)
+
+#definimos la fecha de inicio de la guerra
+war_start_date= pd.to_datetime('2022-02-24').tz_localize('UTC')
+
+#Creamos la columna nueva que identifica si ese dia ucrania estaba en guerra o no
+data['Guerra_Ucrania']=(data.index >= war_start_date).astype(int)
+
+#verificamos la informacion para asegurarnos que se guardo correctamente
+print(data.head())
+print(data.tail())
+
+#vemos una descripción completa de los datos
+data_description= data.describe(include='all')
+
+print(data_description)
+
+#guardamos la informacion agregada en un archivo csv 
+data.to_csv ('financial_data_with_war.csv')
+
+#6 Buscamos los valores duplicados y en caso de que tengamos los eliminamos
+
+#filtramos las filas duplicadas
+duplicated_rows= data[data.duplicated()]
+
+#mostramos las finas duplicadas
+print(duplicated_rows)
+
+
+#7- Ordenamos la informacion para que la variable target quede al final en formato binario 
+
+#movemos la columna 'MCD' hacia la derecha. 
+columns= [col for col in data.columns if col != 'MCD']+ ['MCD']
+data= data[columns]
+
+#Creamos la nueva variable que vamos a utilizar 
+data['MCD_Target']=(data['MCD'].shift(-1) > data['MCD']).astype(int)
+
+#Eliminamos la ultima fila que no la vamos a poder comparar por no tener el valor de mañana
+data= data.iloc[:-1]
+
+# Eliminar la columna original 'MCD' para evitar influencias en el modelo
+data = data.drop(columns=['MCD'])
+
+print(data.head())
+
+#8 Modificamos los valores de cierre a valores relativos- Cambiamos los valores del cierre de precio de las acciones por el valor relativo de si el precio subio o bajo respecto al dia anterior
+
+
+#-Aislamos la variable objetivo para que no se vea afectada por los resultados 
+guerra_ucrania= data['Guerra_Ucrania']
+mcd_target=data['MCD_Target']
+
+
+#-Pasamos los valores de cierre de acciones al precio relativo respecto del dia anterior
+columns_to_transform=[col for col in data.columns if col not in ['MCD_Target', 'Guerra_Ucrania']]
+
+data_transformed= data[columns_to_transform].pct_change()
+
+#-Sobre las columnas transformadas volvemos a agregar la variable objetivo 
+
+data_transformed['Guerra_Ucrania']=guerra_ucrania
+data_transformed['MCD_Target']=mcd_target
+
+
+
+#-La primera fila, como no tiene valores contra los que compararse va a tener resultado NaN. Procedemos a eiminarlos 
+data_diaria= data_transformed.dropna()
+
+#-Mostramos los primeros valores para ver los resultados 
+data_diaria.head()
+
+#exportamos la base de datos con valores diarios 
+data_diaria.to_csv('base_de_datos_diaria.csv')
+
+#9-El calculo de las predicciones de las valores diarios de mc donalds es muy malo. Por lo que pasamos los valores de diarios a semanales
+
+#En primer lugar hay que trabajar las columnas que no son binarias y las que si son por separado. 
+
+#Dividimos el df, 1 es para los valores no binarios y 2 para los valores binarios
+#Trabajamos los valores no binarios 
+data_column_1= [col for col in data_diaria.columns if col not in ['Guerra_Ucrania', 'MCD_Target']]
+
+data_weekly_avg= data_diaria[data_column_1].resample('W').mean()
+
+#Trabajamos los valores binarios
+data_weekly_bin= data_diaria[['Guerra_Ucrania', 'MCD_Target']].resample('w').apply(lambda x: x.mode()[0])
+
+#Combinamos los resultados en un solo df 
+data_weekly= pd.concat([data_weekly_avg, data_weekly_bin], axis=1)
+
+print(data_weekly.head())
+
+data_weekly.to_csv('base_de_datos_semanal.csv')
+
+
+#10- Una vez que tenemos las dos BBDD listas(semanal y diaria) procedemos a eliminar las correlaciones superiores al 90%
+
+

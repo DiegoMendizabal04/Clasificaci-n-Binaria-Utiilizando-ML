@@ -1,0 +1,63 @@
+import pandas as pd
+import numpy as np  # Importar numpy directamente
+
+#1-Eliminacion de correlaciones superiores al 90% para bases de datos diaria
+#-Cargar el DataFrame (ajusta el nombre del archivo si es necesario)
+data_diaria = pd.read_csv('base_de_datos_diaria.csv', index_col='Date', parse_dates=True)
+
+# Calcular la matriz de correlación absoluta
+correlation_matrix = data_diaria.corr().abs()
+
+# Crear un triángulo superior de la matriz de correlación para identificar duplicados
+upper_triangle = correlation_matrix.where(
+    np.triu(np.ones(correlation_matrix.shape), k=1).astype(bool)
+)
+
+# Identificar las columnas con alta correlación (correlación mayor a 0.9)
+high_corr_columns = [column for column in upper_triangle.columns if any(upper_triangle[column] > 0.9)]
+
+# Eliminar las columnas altamente correlacionadas
+data_reduced_diaria = data_diaria.drop(columns=high_corr_columns)
+
+# Mostrar las columnas eliminadas
+print(f"Columnas eliminadas por alta correlación: {high_corr_columns}")
+
+# Mostrar las primeras filas del nuevo DataFrame reducido
+print(data_reduced_diaria.head())
+
+#Exportamos a csv 
+data_reduced_diaria.to_csv('base_diaria.csv') 
+
+
+###############
+#2-Eliminacion de correlaciones superiores al 90% para bases de datos semanal 
+#-Cargar el DataFrame (ajusta el nombre del archivo si es necesario)
+data_semanal = pd.read_csv('base_de_datos_semanal.csv', index_col='Date', parse_dates=True)
+
+# Calcular la matriz de correlación absoluta
+correlation_matrix = data_semanal.corr().abs()
+
+# Crear un triángulo superior de la matriz de correlación para identificar duplicados
+upper_triangle = correlation_matrix.where(
+    np.triu(np.ones(correlation_matrix.shape), k=1).astype(bool)
+)
+
+# Identificar las columnas con alta correlación (correlación mayor a 0.9)
+high_corr_columns = [column for column in upper_triangle.columns if any(upper_triangle[column] > 0.9)]
+
+# Eliminar las columnas altamente correlacionadas
+data_reduced_semanal = data_semanal.drop(columns=high_corr_columns)
+
+# Mostrar las columnas eliminadas
+print(f"Columnas eliminadas por alta correlación: {high_corr_columns}")
+
+# Mostrar las primeras filas del nuevo DataFrame reducido
+print(data_reduced_semanal.head())
+
+#Exportamos a csv 
+data_reduced_semanal.to_csv('base_semanal.csv') 
+
+
+
+
+

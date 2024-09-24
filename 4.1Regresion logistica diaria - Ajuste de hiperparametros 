@@ -1,0 +1,69 @@
+##REGRESION LOGISTICA PARA BASE DE DATOS DIARIA
+
+# 1- Importamos las librerías necesarias
+import pandas as pd
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.impute import SimpleImputer
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, confusion_matrix
+from imblearn.over_sampling import SMOTE
+
+# 2- Cargamos los datos del DataFrame
+data = pd.read_csv('base_diaria.csv', index_col='Date', parse_dates=True)
+
+# 3- Dividimos las columnas en las variables independientes (X) y la variable objetivo (y)
+X = data.drop(columns='MCD_Target')
+y = data['MCD_Target']
+
+# 4- Dividimos los datos en entrenamiento y prueba
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# 5- Imputamos los valores faltantes en X_train y X_test
+imputer = SimpleImputer(strategy='mean')
+X_train_imputed = imputer.fit_transform(X_train)
+X_test_imputed = imputer.transform(X_test)
+
+# 6- Aplicar SMOTE para balancear las clases en los datos de entrenamiento
+smote = SMOTE(random_state=42)
+X_resampled, y_resampled = smote.fit_resample(X_train_imputed, y_train)
+
+#7-Ajuste de hiperparametros utilizando gridsearch
+#Definimos los parametros a ajustar
+param_grid={
+    'C':[0.1,1,10,100],
+    'penalty':['l1','l2'],
+    'solver':['liblinear', 'saga']
+}
+
+#8- Instanciamos el modelo de regresion logistica 
+logistic_model= LogisticRegression(random_state=42, max_iter=1000)
+
+#9- Configuramos Gridsearch 
+grid_search=GridSearchCV(estimator=logistic_model, param_grid=param_grid, scoring='f1', cv=5)
+
+#10- Entrenamos el modelo con gridsearch
+grid_search.fit(X_resampled,y_resampled)
+
+#11-Calculamos los mejores parametros 
+best_params= grid_search.best_params_
+print(f'Mejores parametros: {best_params}')
+
+#12- Evaluamos el modelo con los mejores parametros 
+best_model= grid_search.best_estimator_
+y_pred=best_model.predict(X_test_imputed)
+
+#13- Calculamos las metricas de precision 
+accuracy= accuracy_score(y_test, y_pred)
+precision= precision_score(y_test,y_pred)
+recall= recall_score(y_test, y_pred)
+f1 = f1_score(y_test, y_pred)
+roc_auc= roc_auc_score(y_test, y_pred)
+
+#14 imprimimos las metricas
+print(f'Accuracy : {accuracy}')
+print(f'Precision : {precision}')
+print(f'recall : {recall}')
+print(f'f1_score : {f1}')
+print(f'roc_auc : {roc_auc}')
+
+
